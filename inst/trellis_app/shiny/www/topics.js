@@ -14,25 +14,22 @@ var flattenMode     = false;
 var LEFT_BAR_WIDTH  = 300;
 var RIGHT_BAR_WIDTH = 300;
 var activeSelector;
-var activeWidget;
-
-var lastData        = null;
 
 var assignments;
 
 // NOTE(tfs): These aren't actually set correctly at all. HTMLWidgets.widgets
 //            does not give the actual instance we care about (with access to data)
-// var bubbleWidget    = null;
-// var treeWidget      = null;
+var bubbleWidget = null;
+var treeWidget   = null;
 
 var BUBBLE_SELECTOR = "svg#bubbles-svg";
 var TREE_SELECTOR   = "svg#tree-svg";
 
-var selectors       = {};
+var selectors = {};
 
-var selectedNodeID  = -1;
+var selectedNodeID = -1;
 
-var assignments     = "";
+var assignments = "";
 
 
 // Add listeners once document is ready
@@ -41,12 +38,6 @@ $(document).ready(function() {
 	$("#main-panel").css({ "max-width": ($(window).width() - (LEFT_BAR_WIDTH + 5)) + "px"});
 	$("#document-details-content").css({ "max-width": ($(window).width() - (LEFT_BAR_WIDTH + 5)) + "px"});
 	$(window).resize(function(event) {
-		var bubbleSel = $("#topic-bubble-container");
-		var treeSel = $("#topic-tree-container");
-
-		bubbleWidget.resize(bubbleSel[0], bubbleSel.width(), bubbleSel.height());
-		treeWidget.resize(treeWidget[0], treeSel.width(), treeSel.height());
-
 		if (!exportMode) {
 			$("#main-panel").css({ "max-width": ($(window).width() - (LEFT_BAR_WIDTH + 5)) + "px"});
 			$("#document-details-content").css({ "max-width": ($(window).width() - (LEFT_BAR_WIDTH + 5)) + "px"});
@@ -141,8 +132,6 @@ $(document).on("shiny:sessioninitialized", function(event) {
 
 	Shiny.addCustomMessageHandler("initializeMainView", initializeMainView);
 
-	Shiny.addCustomMessageHandler("renderTopicData", renderTopicData);
-
 	Shiny.addCustomMessageHandler("topicSelected", handleTopicSelection);
 
 	Shiny.addCustomMessageHandler("enterExportMode", enterExportMode);
@@ -184,32 +173,19 @@ function processInputFile(msg) {
 
 // Switch to main view (from initial panel)
 function initializeMainView(msg) {
-	var width = $("#topic-bubble-container").width();
-	var height = $("#topic-bubble-container").height();
-	bubbleWidget.initialize($("#topic-bubble-container")[0], width, height);
-	treeWidget.initialize($("#topic-tree-container")[0], width, height);
 	$("#doctab-document-container").css({ "height": ($(window).height() - $("#doctab-document-container").position().top) });
 	$("#vocabtab-vocab-container").css({ "height": ($(window).height() - $("#vocabtab-vocab-container").position().top) });
-	activeWidget = bubbleWidget;
-	Shiny.onInputChange("start.render", "");
 };
 
 
-function renderTopicData(json) {
-	lastData = json;
-
-	activeWidget.renderValue(json);
-}
+function registerBubbleWidget(widget) {
+	bubbleWidget = widget;
+};
 
 
-// function registerBubbleWidget(widget) {
-// 	bubbleWidget = widget;
-// };
-
-
-// function registerTreeWidget(widget) {
-// 	treeWidget = widget;
-// };
+function registerTreeWidget(widget) {
+	treeWidget = widget;
+};
 
 
 // Set shinyFiles input fields to null (for performance)
@@ -270,11 +246,6 @@ function selectBubbles() {
 	}
 
 	selectedView = BUBBLE_LABEL;
-	activeWidget = bubbleWidget;
-
-	if (lastData !== null) {
-		activeWidget.renderValue(lastData);
-	}
 	
 	$("#bubbles-selector").addClass("selected-view-button");
 	$("#right-bubbles-selector").addClass("selected-view-button");
@@ -306,11 +277,6 @@ function selectTree() {
 	}
 
 	selectedView = TREE_LABEL;
-	activeWidget = treeWidget;
-
-	if (lastData !== null) {
-		activeWidget.renderValue(lastData);
-	}
 	
 	$("#tree-selector").addClass("selected-view-button");
 	$("#right-tree-selector").addClass("selected-view-button");

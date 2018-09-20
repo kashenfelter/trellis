@@ -3,6 +3,9 @@ library(shinyjs)
 library(jsonlite)
 library(stm)
 library(data.table)
+library(htmlwidgets)
+library(topicBubbles)
+library(topicTree)
 library(xtable) # Used to sanitize output
 library(Matrix) # Used for sparse beta
 library(irlba)  # Used for fast SVD
@@ -29,19 +32,6 @@ beta.svd.ratio <- 4
 # TODO(tfs; 2018-08-14): MINIMIZE USE OF $ ACCESSOR
 #                        According to the profvis profiler, $ seems to be very slow
 #                        (at least for reactiveValuse)
-
-
-# The following observers change the data (and trigger re-renders):
-#   collapseNode
-#   expandNode
-#   runtimeCluster
-#   deleteCluster
-#   updateAssignments
-#   topics
-#   flat.node.selection
-#   clear.flat.selection
-#   updateTitle
-
 
 
 function(input, output, session) {
@@ -615,7 +605,7 @@ function(input, output, session) {
   # Handle enabling/disabling the "Start" button on the initial panel.
   #        Model file must be provided, but `input$textlocation` is optional
   observe({
-    shinyjs::toggleState("topic.start", nrow(parseFilePaths(volumes, input$modelfile)) > 0)
+    shinyjs::toggleState("topic.start", !is.null(input$modelfile))
   })
 
 
@@ -781,7 +771,7 @@ function(input, output, session) {
     init.calculated.titles()
     init.display.titles()
 
-    req(topics.data()) # Similarly ensures that topics.data() finishes running before displays transition
+    req(bubbles.data()) # Similarly ensures that bubbles.data() finishes running before displays transition
 
     shinyjs::hide(selector=".initial")
     shinyjs::show(selector=".left-content")
@@ -792,16 +782,6 @@ function(input, output, session) {
   })
 
 
-  # Sends the message to render topic data
-  observeEvent(input$start.render, {
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
-  })
-
-
-  # TODO(tfs; 2018-09-19): Now that we aren't using HTMLWidgets,
-  #                        we can do away with this complication
-  #                        and just call functions/store the selected node
-  #                        on the frontend?
   observeEvent(input$selectedView, {
     messageType <- paste0("switchMainViewTo", input$selectedView[[1]])
 
@@ -938,11 +918,6 @@ function(input, output, session) {
     }
 
     stateStore$collapsed.nodes[[as.integer(rawNodeID)]] <- TRUE
-
-    # TODO(tfs; 2018-09-19): Once switching to non-htmlwidget is complete,
-    #                        it will be easier to transmit only the relevant changes
-    #                        rather than transmitting all data again.
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
   observeEvent(input$expandNode, {
@@ -963,8 +938,6 @@ function(input, output, session) {
     }
 
     stateStore$collapsed.nodes[[as.integer(rawNodeID)]] <- FALSE
-
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
   # Given that a hierarchy already exists (the widgets are already rendered),
@@ -1052,7 +1025,6 @@ function(input, output, session) {
 
     # Notify frontend of completion
     session$sendCustomMessage("runtimeClusterFinished", "SUCCESS")
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1084,7 +1056,6 @@ function(input, output, session) {
     stateStore$leaf.map[[toString(topic)]] <- c()
 
     session$sendCustomMessage("nodeDeletionComplete", "SUCCESS")
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1305,8 +1276,6 @@ function(input, output, session) {
 
     clean.aggregate.state(ids.to.clean)
     update.aggregate.state(changedIDs, newIDs)
-
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1369,8 +1338,6 @@ function(input, output, session) {
     stateStore$assigns <- newA
 
     update.all.aggregate.state()
-
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1482,15 +1449,12 @@ function(input, output, session) {
     for (id in idlist) {
       stateStore$flat.selection[[id]] <- FALSE
     }
-
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
   # Clears selection, used when exiting flat export more
   observeEvent(input$clear.flat.selection, {
     stateStore$flat.selection <- NULL
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1757,8 +1721,6 @@ function(input, output, session) {
     update.display.titles(c(topic), c())
 
     session$sendCustomMessage("cleanTitleInput", "")
-
-    session$sendCustomMessage("renderTopicData", formatted.topics.data())
   })
 
 
@@ -1770,7 +1732,7 @@ function(input, output, session) {
   #      collapsed:    list of flags denoting collapsed nodes
   #         ilLeaf:    list of flags denoting whether node is a leaf
   #   flatSelected:    list of flags denoting nodes selected for flat export
-  topics.data <- reactive({
+  bubbles.data <- reactive({
     if (is.null(data())) {
       return(NULL)
     }
@@ -1779,7 +1741,7 @@ function(input, output, session) {
     nid <- c() # Node ids (children, but will serve as the basic node id for each topic in the widgets)
     ttl <- c() # Titles, aggregating manual and automatic
     clp <- c() # Collapsed node flags
-    wgt <- c() # Denotes node weights
+    wgt <- c()
     ilf <- c() # Denotes nodes that are true leaves (simplifies storage/representation of collapsed nodes)
     flt <- c() # Flat model export, node selection flags
 
@@ -1845,12 +1807,12 @@ function(input, output, session) {
   })
 
 
-  formatted.topics.data <- reactive({
-    topdat <- topics.data()
-    topjs <- toJSON(topdat)
+  # Render bubble widget
+  output$bubbles <- renderTopicBubbles({ topicBubbles(bubbles.data()) })
 
-    return(topjs)
-  })
+
+  # Render tree widget
+  output$tree <- renderTopicTree({ topicTree(bubbles.data()) })
 }
 
 

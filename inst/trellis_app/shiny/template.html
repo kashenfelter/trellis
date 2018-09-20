@@ -89,6 +89,10 @@
                                 {{ inputClusterButton }}
                                 {{ inputDeleteCluster }}
                             </div>
+<!-- 
+                            <div id="cluster-delete-container" class="input-group">
+                                
+                            </div> -->
                         </div>
                     </div>
 
@@ -218,12 +222,12 @@
             <!-- Main views -->
             <div id="bubbles-view" class="view">
                 <h3>Bubbles View</h3>
-                <div id="topic-bubble-container"></div>
+                {{ outputBubbles }}
             </div>
 
             <div id="tree-view" class="view hidden-view">
                 <h3>Tree View</h3>
-                <div id="topic-tree-container"></div>
+                {{ outputTree }}
             </div>
         </div>
 
@@ -256,9 +260,6 @@
             </div>
         </div>
 
-        <script src="https://d3js.org/d3.v5.min.js"></script>
-
-        <script src="topicBubbles.js"></script>
-        <script src="topicTree.js"></script>
-        <script src="topics.js"></script>    </body>
+        <script src="topics.js"></script>
+    </body>
 </html>
